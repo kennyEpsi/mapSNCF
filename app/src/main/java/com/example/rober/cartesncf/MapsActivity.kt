@@ -1,9 +1,11 @@
 package com.example.rober.cartesncf
 
 import android.app.Activity
+import android.app.Activity.RESULT_OK
 import android.content.Intent
 import android.content.IntentSender
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.location.Location
 import android.os.Bundle
 import android.support.design.widget.FloatingActionButton
@@ -18,15 +20,18 @@ import com.google.android.gms.location.*
 import com.google.android.gms.location.places.ui.PlacePicker
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.GoogleMap.OnMarkerClickListener
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import org.json.JSONArray
 import org.json.JSONObject
 
 
-class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
+class MapsActivity : AppCompatActivity(), OnMapReadyCallback, OnMarkerClickListener {
 
     private lateinit var map: GoogleMap
 
@@ -44,8 +49,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
 
     }
 
-    val url: String = "https://api.sncf.com/v1/coverage/sncf/stop_areas"
-
+    val url: String = "https://data.sncf.com/api/records/1.0/search/?dataset=liste-des-gares&rows=96&facet=departement&refine.departement=Rh%C3%B4ne"
     val username = "06d05604-d07a-4422-8fca-2d3fa977f0d6"
     val password = ""
 
@@ -74,6 +78,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
 
         createLocationRequest()
+
+        getAreaTrain()
     }
 
     override fun onMarkerClick(p0: Marker?) = false
@@ -118,9 +124,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
     }
 
-    private fun placeMarkerOnMap(location: LatLng) {
-        map.clear()
-        val markerOptions = MarkerOptions().position(location)
+    private fun placeMarkerOnMap(location: LatLng, title : String) {
+        val markerOptions = MarkerOptions().position(location).title(title).icon(BitmapDescriptorFactory.fromBitmap(
+                BitmapFactory.decodeResource(resources, R.mipmap.ic_user_location)))
         map.addMarker(markerOptions)
     }
 
@@ -128,16 +134,18 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
 
         Fuel.get(url).authenticate(username, password).responseJson { request, response, result ->
 
-            val jsonArray = result.get().getJSONArray("stop_areas")
+            val jsonArray = result.get().getJSONArray("records")
 
             for (i in 0..(jsonArray.length() - 1)) {
                 var stopArea: JSONObject = jsonArray.getJSONObject(i)
 
-                var name: String = stopArea.getString("name")
-                var coord: JSONObject = stopArea.getJSONObject("coord")
-                var pos : LatLng = LatLng(coord.getDouble("lat"),coord.getDouble("long"))
-                var latitude: String = coord.getString("lat")
-                var longitude: String = coord.getString("lon")
+                var fields: JSONObject = stopArea.getJSONObject("fields")
+                var name: String = fields.getString("libelle_gare")
+                var coordonnees: JSONArray = fields.getJSONArray("coordonnees_geographiques")
+                var lat = coordonnees.get(0)
+                var long = coordonnees.get(1)
+
+                placeMarkerOnMap(LatLng(lat as Double, long as Double), name)
             }
         }
 
@@ -238,11 +246,3 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
     }
 }
-
-/*map.addPolyline(new PolylineOptions().geodesic(true)
-.add(new LatLng(-33.866, 151.195))  // Sydney
-.add(new LatLng(-18.142, 178.431))  // Fiji
-.add(new LatLng(21.291, -157.821))  // Hawaii
-.add(new LatLng(37.423, -122.091))  // Mountain View
-
-*/
